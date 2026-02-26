@@ -2,22 +2,54 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gestión de Biblioteca</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- Loader de Google Charts (necesario para usar Visualization / Query sin CORS) -->
+  <!-- Loader de Google Charts (para usar Visualization Query sin CORS) -->
   <script src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
   <h1>Gestión de Préstamos – Biblioteca</h1>
 
   <section id="controles">
-    <button id="btnRefrescar">Refrescar datos</button>
-    <label style="margin-left:12px;">
-      Socio:
+    <button id="btnRefrescar">Refrescar</button>
+
+    <div class="config">
+      <label for="diasPrestamo">Días de préstamo:</label>
+      <input id="diasPrestamo" type="number" min="1" value="7" />
+      <button id="btnGuardarDias">Guardar</button>
+      <small id="configInfo"></small>
+    </div>
+
+    <div class="filtros">
+      <label>Estado:</label>
+      <select id="filtroEstado">
+        <option value="todos">Todos</option>
+        <option value="disponibles">Disponibles</option>
+        <option value="prestados">Prestados</option>
+        <option value="vencidos">Vencidos</option>
+      </select>
+
+      <label style="margin-left:8px;">Título:</label>
+      <input id="filtroTitulo" type="text" placeholder="Buscar título..." />
+
+      <label style="margin-left:8px;">Autor:</label>
+      <input id="filtroAutor" type="text" placeholder="Buscar autor..." />
+
+      <label style="margin-left:12px;">
+        <input id="remarcarVencidos" type="checkbox" checked />
+        Remarcar vencidos
+      </label>
+
+      <button id="btnLimpiar" class="sec">Limpiar filtros</button>
+    </div>
+
+    <div class="socioPicker">
+      <label>Socio:</label>
       <select id="socioSelect">
         <option value="">-- elegir socio --</option>
       </select>
-    </label>
+    </div>
   </section>
 
   <h2>Libros</h2>
@@ -36,7 +68,7 @@
     <tbody></tbody>
   </table>
 
-  <div id="mensajes" style="margin-top:12px;color:#b00;"></div>
+  <div id="mensajes" class="mensajes"></div>
 
   <script src="app.js"></script>
 </body>

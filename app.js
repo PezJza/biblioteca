@@ -1,13 +1,19 @@
-
-// ====== CONFIG ======
-const sheetID     = "1xm_sPi7GUWuSKgWMpB_ExteRv5B2YfDlt9OIks5_xG8"; // <-- tu ID
-const gidCatalogo = 0;  // <-- gid de "catalogo" (ejemplo)
-const gidSocios   = 687599683;           // <-- gid de "socios" (reemplazar)
-const apiURL      = "https://script.google.com/macros/s/AKfycbyWklIwvU_oWnYKIkGdOgy4JoDxwv7DFGn9q2JcCvg-wjmQEzfFFRuyLIPdUSjVF94z/exec"; // <-- tu /exec
+// ====== CONFIG (tus datos) ======
+const sheetID     = "1xm_sPi7GUWuSKgWMpB_ExteRv5B2YfDlt9OIks5_xG8"; // ID del spreadsheet
+const gidCatalogo = 0;                  // gid de la pestaña "catalogo"
+const gidSocios   = 687599683;          // gid de la pestaña "socios"
+const apiURL      = "https://script.google.com/macros/s/AKfycbx5qGUqFpVGRMnK0iwpYY7km1azeireZPKZ1fMPJFdc67kCoxoaLoQGY9CCFbE7eDgV/exec"; // tu /exec
 
 // Estado local
 let catalogo = []; // [{id,titulo,autor,estado,socio,fecha}]
 let socios   = []; // [{id, nombre}]
+let diasPrestamo = 7; // valor por defecto (se sobreescribe con config)
+let filtro = {
+  estado: "todos",
+  titulo: "",
+  autor: "",
+  remarcar: true,
+};
 
 // ====== UTIL ======
 function msg(txt) {
@@ -15,26 +21,30 @@ function msg(txt) {
   el.textContent = txt || "";
 }
 
-// Crea una URL GViz apuntando a un gid específico
 function gvizUrl(gid) {
   return `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?gid=${gid}&headers=1&tqx=out:json`;
 }
 
-// Convierte DataTable -> arrays/objetos
 function dataTableToCatalogo(dt) {
   const rows = dt.getNumberOfRows();
-  const cols = dt.getNumberOfColumns();
   const out = [];
   for (let r = 0; r < rows; r++) {
     const id     = dt.getValue(r, 0) ?? "";
     const titulo = dt.getValue(r, 1) ?? "";
     const autor  = dt.getValue(r, 2) ?? "";
     const estado = dt.getValue(r, 3) ?? "Disponible";
-    const socio  = dt.getValue(r, 4) ?? "";
-    const fecha  = dt.getValue(r, 5) ?? "";
-    if (String(id).trim() || String(titulo).trim() || String(autor).trim()) {
-      out.push({ id, titulo, autor, estado, socio, fecha });
+    let   socio  = dt.getValue(r, 4) ?? "";
+    let   fecha  = dt.getValue(r, 5) ?? "";
+
+    // Normalizar fecha a string dd/mm/aaaa si viene Date de GViz
+    if (fecha instanceof Date) {
+      const d = fecha.getDate().toString().padStart(2, "0");
+      const m = (fecha.getMonth() + 1).toString().padStart(2, "0");
+      const y = fecha.getFullYear();
+      fecha = `${d}/${m}/${y}`;
     }
+
+    out.push({ id, titulo, autor, estado, socio, fecha });
   }
   return out;
 }
@@ -50,6 +60,28 @@ function dataTableToSocios(dt) {
     }
   }
   return out;
+}
+
+// Convertir string "dd/mm/aaaa" -> Date (local). Si falla, devuelve null.
+function parseFechaDMY(s) {
+  if (!s || typeof s !== "string") return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const d = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10) - 1;
+  const y = parseInt(m[3], 10);
+  const dt = new Date(y, mo, d, 23, 59, 59); // fin del día para no cortar
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+function esVencido(lib) {
+  if ((lib.estado || "").toLowerCase() !== "prestado") return false;
+  const f = parseFechaDMY(lib.fecha);
+  if (!f) return false;
+  const hoy = new Date();
+  // Comparar solo fecha (sin hora)
+  const hoy0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+  return f.getTime() < hoy0.getTime();
 }
 
 // ====== LECTURA SIN CORS (Visualization / JSONP) ======
@@ -79,67 +111,18 @@ async function cargarSocios() {
   const dt = resp.getDataTable();
   socios = dataTableToSocios(dt);
 
-  // pintar combo
+  // Pintar combo de socios
   const sel = document.getElementById("socioSelect");
   sel.innerHTML = `<option value="">-- elegir socio --</option>`;
   socios.forEach(s => {
     const opt = document.createElement("option");
-    opt.value = s.nombre; // escribimos el nombre en la col E de catalogo
+    opt.value = s.nombre; // se escribe el nombre en la col E
     opt.textContent = `${s.nombre} (${s.id})`;
     sel.appendChild(opt);
   });
 }
 
-// ====== RENDER ======
-function renderTabla() {
-  const tbody = document.querySelector("#libros tbody");
-  tbody.innerHTML = "";
-  catalogo.forEach((lib, idx) => {
-    const tr = document.createElement("tr");
-    const disponible = (lib.estado || "").toLowerCase() === "disponible";
-    tr.innerHTML = `
-      <td>${lib.id}</td>
-      <td>${lib.titulo}</td>
-      <td>${lib.autor}</td>
-      <td>${lib.estado || "Disponible"}</td>
-      <td>${lib.socio || "-"}</td>
-      <td>${lib.fecha || "-"}</td>
-      <td>
-        ${disponible
-          ? `<button onclick="prestar(${idx})">Prestar</button>`
-          : `<button onclick="devolver(${idx})">Devolver</button>`}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// ====== ARRANQUE ======
-document.addEventListener("DOMContentLoaded", async () => {
-  msg("");
-  document.getElementById("btnRefrescar").addEventListener("click", cargarTodo);
-
-  // 1) Cargar la librería Visualization
-  google.charts.load("current", { packages: [] }); // no hace falta 'table', solo Query
-  google.charts.setOnLoadCallback(async () => {
-    try {
-      await cargarTodo();
-    } catch (e) {
-      console.error(e);
-      msg("No pude leer la hoja. Revisá los gid/permiso de publicación.");
-    }
-  });
-});
-
-async function cargarTodo() {
-  msg("Cargando datos...");
-  await Promise.all([cargarCatalogo(), cargarSocios()]);
-  renderTabla();
-  msg("");
-}
-
-// ====== ESCRITURA (Apps Script) ======
-// Tip CORS: usamos text/plain (evita preflight). Asegurate de publicar la web app con acceso 'Cualquiera con el enlace'.
+// ====== CONFIG remota (Apps Script) ======
 async function apiPost(payload) {
   const res = await fetch(apiURL, {
     method: "POST",
@@ -150,20 +133,163 @@ async function apiPost(payload) {
   try { return JSON.parse(txt); } catch { return { ok:false, raw:txt }; }
 }
 
+async function cargarConfig() {
+  const out = await apiPost({ accion: "getConfig", clave: "dias_prestamo" });
+  if (out && out.ok) {
+    const val = parseInt(out.valor, 10);
+    if (!isNaN(val) && val > 0) {
+      diasPrestamo = val;
+    }
+  }
+  document.getElementById("diasPrestamo").value = diasPrestamo;
+  document.getElementById("configInfo").textContent = `(actual: ${diasPrestamo} días)`;
+}
+
+async function guardarConfig() {
+  const input = document.getElementById("diasPrestamo");
+  const val = parseInt(input.value, 10);
+  if (isNaN(val) || val <= 0) {
+    alert("Ingresá un número de días válido (>=1).");
+    return;
+  }
+  const out = await apiPost({ accion: "setConfig", clave: "dias_prestamo", valor: val });
+  if (out && out.ok) {
+    diasPrestamo = val;
+    document.getElementById("configInfo").textContent = `(actual: ${diasPrestamo} días)`;
+    alert("Días de préstamo guardados.");
+  } else {
+    console.error(out);
+    alert("No se pudo guardar la configuración. Revisá la consola.");
+  }
+}
+
+// ====== FILTROS / RENDER ======
+function aplicarFiltros() {
+  const qTitulo = filtro.titulo.trim().toLowerCase();
+  const qAutor  = filtro.autor.trim().toLowerCase();
+  const tipo    = filtro.estado;
+
+  return catalogo.filter(lib => {
+    // filtro por estado
+    if (tipo === "disponibles" && (lib.estado || "").toLowerCase() !== "disponible") return false;
+    if (tipo === "prestados"   && (lib.estado || "").toLowerCase() !== "prestado")   return false;
+    if (tipo === "vencidos"    && !esVencido(lib)) return false;
+
+    // filtro por texto
+    if (qTitulo && !String(lib.titulo || "").toLowerCase().includes(qTitulo)) return false;
+    if (qAutor  && !String(lib.autor  || "").toLowerCase().includes(qAutor))  return false;
+
+    return true;
+  });
+}
+
+function renderTabla() {
+  const tbody = document.querySelector("#libros tbody");
+  tbody.innerHTML = "";
+
+  const data = aplicarFiltros();
+  const remarcar = filtro.remarcar;
+
+  data.forEach((lib, idx) => {
+    const tr = document.createElement("tr");
+    const disponible = (lib.estado || "").toLowerCase() === "disponible";
+    const vencido = esVencido(lib);
+
+    if (remarcar && vencido) {
+      tr.classList.add("vencido");
+    }
+
+    const fechaCellClass = vencido ? 'class="fecha-vencida"' : "";
+
+    tr.innerHTML = `
+      <td>${lib.id}</td>
+      <td>${lib.titulo}</td>
+      <td>${lib.autor}</td>
+      <td>${lib.estado || "Disponible"}</td>
+      <td>${lib.socio || "-"}</td>
+      <td ${fechaCellClass}>${lib.fecha || "-"}</td>
+      <td>
+        ${disponible
+          ? `<button onclick="prestar(${idx})">Prestar</button>`
+          : `<button onclick="devolver(${idx})">Devolver</button>`}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (data.length === 0) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="7" style="text-align:center;color:#666;">Sin resultados con los filtros actuales.</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ====== ARRANQUE ======
+document.addEventListener("DOMContentLoaded", async () => {
+  // Eventos UI
+  document.getElementById("btnRefrescar").addEventListener("click", cargarTodo);
+  document.getElementById("btnGuardarDias").addEventListener("click", guardarConfig);
+
+  document.getElementById("filtroEstado").addEventListener("change", (e) => {
+    filtro.estado = e.target.value;
+    renderTabla();
+  });
+  document.getElementById("filtroTitulo").addEventListener("input", (e) => {
+    filtro.titulo = e.target.value;
+    renderTabla();
+  });
+  document.getElementById("filtroAutor").addEventListener("input", (e) => {
+    filtro.autor = e.target.value;
+    renderTabla();
+  });
+  document.getElementById("remarcarVencidos").addEventListener("change", (e) => {
+    filtro.remarcar = !!e.target.checked;
+    renderTabla();
+  });
+  document.getElementById("btnLimpiar").addEventListener("click", () => {
+    filtro = { estado:"todos", titulo:"", autor:"", remarcar:true };
+    document.getElementById("filtroEstado").value = "todos";
+    document.getElementById("filtroTitulo").value = "";
+    document.getElementById("filtroAutor").value  = "";
+    document.getElementById("remarcarVencidos").checked = true;
+    renderTabla();
+  });
+
+  // Cargar librería Visualization
+  google.charts.load("current", { packages: [] });
+  google.charts.setOnLoadCallback(async () => {
+    try {
+      await cargarTodo();
+    } catch (e) {
+      console.error(e);
+      msg("No pude leer la hoja. Ver permisos de publicación y GIDs.");
+    }
+  });
+});
+
+async function cargarTodo() {
+  msg("Cargando datos...");
+  await Promise.all([cargarCatalogo(), cargarSocios(), cargarConfig()]);
+  renderTabla();
+  msg("");
+}
+
+// ====== ESCRITURA (Apps Script) ======
 async function prestar(idx) {
   const socioSel = document.getElementById("socioSelect").value;
   if (!socioSel) {
     alert("Elegí un socio en el selector antes de prestar.");
     return;
   }
-  const lib = catalogo[idx];
+  const lib = aplicarFiltros()[idx]; // usar índice de la vista filtrada
   if (!lib?.id) {
     alert("No se encontró el ID del libro.");
     return;
   }
+
   const hoy = new Date();
-  const devolucion = new Date();
-  devolucion.setDate(hoy.getDate() + 7);
+  const devolucion = new Date(hoy);
+  devolucion.setDate(hoy.getDate() + Number(diasPrestamo || 7));
   const fechaArg = devolucion.toLocaleDateString("es-AR");
 
   const out = await apiPost({
@@ -183,7 +309,7 @@ async function prestar(idx) {
 }
 
 async function devolver(idx) {
-  const lib = catalogo[idx];
+  const lib = aplicarFiltros()[idx];
   if (!lib?.id) {
     alert("No se encontró el ID del libro.");
     return;
