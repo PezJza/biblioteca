@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestión de Biblioteca</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Loader de Google Charts (necesario para usar Visualization / Query sin CORS) -->
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+<body>
+  <h1>Gestión de Préstamos – Biblioteca</h1>
+
+  <section id="controles">
+    <button id="btnRefrescar">Refrescar datos</button>
+    <label style="margin-left:12px;">
+      Socio:
+      <select id="socioSelect">
+        <option value="">-- elegir socio --</option>
+      </select>
+    </label>
+  </section>
+
+  <h2>Libros</h2>
+  <table id="libros">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Título</th>
+        <th>Autor</th>
+        <th>Estado</th>
+        <th>Socio</th>
+        <th>Fecha devolución</th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="mensajes" style="margin-top:12px;color:#b00;"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
