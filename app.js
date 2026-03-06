@@ -2,7 +2,7 @@
 const sheetID     = "1xm_sPi7GUWuSKgWMpB_ExteRv5B2YfDlt9OIks5_xG8"; // ID del spreadsheet
 const gidCatalogo = 0;                  // gid de la pestaña "catalogo"
 const gidSocios   = 687599683;          // gid de la pestaña "socios"
-const apiURL      = "https://script.google.com/macros/s/AKfycbx5qGUqFpVGRMnK0iwpYY7km1azeireZPKZ1fMPJFdc67kCoxoaLoQGY9CCFbE7eDgV/exec"; // tu /exec
+const apiURL      = "https://script.google.com/macros/s/AKfycby7u4WZOonT_gtvdp9mLXtvlFczzz9SYy3Ibqid4rXTHX56WWed-zV7cp7OkxpHoVI/exec"; // tu /exec
 
 // Estado local
 let catalogo = []; // [{id,titulo,autor,estado,socio,fecha}]
@@ -48,18 +48,38 @@ function dataTableToCatalogo(dt) {
   }
   return out;
 }
-
+// Parser para hoja de respuestas del Form con columnas:
+// 0 Marca temporal | 1 N° de socio | 2 Nombre apellido | 3 Dni | ... | 12 Correo electrónico
 function dataTableToSocios(dt) {
   const rows = dt.getNumberOfRows();
-  const out = [];
+
+  // Índices fijos según tu formulario
+  const COL_ID_SOCIO = 1;  // "N° de socio"
+  const COL_NOMBRE   = 2;  // "Nombre apellido"
+  const COL_DNI      = 3;  // "Dni"
+
+  // Dedupe por ID (última respuesta gana)
+  const map = new Map();
   for (let r = 0; r < rows; r++) {
-    const id     = dt.getValue(r, 0) ?? "";
-    const nombre = dt.getValue(r, 1) ?? (dt.getValue(r, 0) ?? "");
-    if (String(id).trim() || String(nombre).trim()) {
-      out.push({ id, nombre });
-    }
+    const idSocio = (dt.getValue(r, COL_ID_SOCIO) ?? "").toString().trim();
+    const dni     = (dt.getValue(r, COL_DNI) ?? "").toString().trim();
+    const nombre  = (dt.getValue(r, COL_NOMBRE) ?? "").toString().trim();
+
+    // Elegimos un ID estable: primero N° de socio; si falta, DNI; si falta, saltamos
+    const id = idSocio || dni;
+    if (!id) continue;
+
+    // Si falta nombre, usamos el ID como nombre (mejor que vacío)
+    const displayName = nombre || id;
+
+    // Guardamos (el último sobreescribe)
+    map.set(id, { id, nombre: displayName });
   }
-  return out;
+
+  // Devuelve array [{id, nombre}] ordenado por nombre
+  return Array.from(map.values()).sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+  );
 }
 
 // Convertir string "dd/mm/aaaa" -> Date (local). Si falla, devuelve null.
