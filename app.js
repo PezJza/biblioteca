@@ -34,7 +34,8 @@ function dataTableToCatalogo(dt) {
     const autor  = dt.getValue(r, 2) ?? "";
     const estado = dt.getValue(r, 3) ?? "Disponible";
     let   socio  = dt.getValue(r, 4) ?? "";
-    let   fecha  = dt.getValue(r, 5) ?? "";
+    const telefono = (dt.getValue(r, 5) ?? "").toString().trim();
+    let   fecha  = dt.getValue(r, 6) ?? "";
 
     // Normalizar fecha a string dd/mm/aaaa si viene Date de GViz
     if (fecha instanceof Date) {
@@ -44,7 +45,7 @@ function dataTableToCatalogo(dt) {
       fecha = `${d}/${m}/${y}`;
     }
 
-    out.push({ id, titulo, autor, estado, socio, fecha });
+    out.push({ id, titulo, autor, estado, socio, telefono, fecha });
   }
   return out;
 }
@@ -227,6 +228,7 @@ function renderTabla() {
       <td>${lib.autor}</td>
       <td>${lib.estado || "Disponible"}</td>
       <td>${lib.socio || "-"}</td>
+      <td>${lib.telefono || "-"}</td
       <td ${fechaCellClass}>${lib.fecha || "-"}</td>
       <td>
         ${disponible
@@ -305,7 +307,9 @@ async function prestar(idx) {
   if (!lib?.id) {
     alert("No se encontró el ID del libro.");
     return;
-  }
+  }  
+  const socioObj = socios.find(s => s.nombre === socioSelNombre) || { telefono: "" };
+  const tel = socioObj.telefono || "";
 
   const hoy = new Date();
   const devolucion = new Date(hoy);
@@ -319,7 +323,12 @@ async function prestar(idx) {
     fecha: fechaArg
   });
   if (out.ok) {
-    alert(`Préstamo registrado para "${lib.titulo}" a ${socioSel}.\nDevolución: ${fechaArg}`);
+    alert(
+      `Préstamo registrado para "${lib.titulo}"\n` +
+      `Socio: ${socioSelNombre}\n` +
+      `Teléfono: ${tel || "(sin teléfono)"}\n` +
+      `Devolución: ${fechaArg}` );
+
     await cargarCatalogo();
     renderTabla();
   } else {
