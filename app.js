@@ -50,24 +50,26 @@ function dataTableToCatalogo(dt) {
   return out;
 }
 // Parser para hoja de respuestas del Form con columnas:
-// 0 Marca temporal | 1 N° de socio | 2 Nombre apellido | 3 Dni | ... | 12 Correo electrónico
+// 0 id socio | 1 Nombre apellido | 2 Dni | ... | 4 telefono
 function dataTableToSocios(dt) {
   const rows = dt.getNumberOfRows();
 
   // Índices fijos según tu formulario
-  const COL_ID_SOCIO = 1;  // "N° de socio"
-  const COL_NOMBRE   = 2;  // "Nombre apellido"
-  const COL_DNI      = 3;  // "Dni"
+  const COL_ID_SOCIO = 0;  // "N° de socio"
+  const COL_NOMBRE   = 1;  // "Nombre apellido"
+  const COL_DNI      = 2;  // "Dni"
+  //const COL_TEL      = 4;  // "telefono"
 
   // Dedupe por ID (última respuesta gana)
   const map = new Map();
   for (let r = 0; r < rows; r++) {
     const idSocio = (dt.getValue(r, COL_ID_SOCIO) ?? "").toString().trim();
-    const dni     = (dt.getValue(r, COL_DNI) ?? "").toString().trim();
     const nombre  = (dt.getValue(r, COL_NOMBRE) ?? "").toString().trim();
-
+    const dni     = (dt.getValue(r, COL_DNI) ?? "").toString().trim();
+    //const telefono     = (dt.getValue(r, COL_TEL) ?? "").toString().trim();
+    
     // Elegimos un ID estable: primero N° de socio; si falta, DNI; si falta, saltamos
-    const id = idSocio || dni;
+    const id = dni || idSocio;
     if (!id) continue;
 
     // Si falta nombre, usamos el ID como nombre (mejor que vacío)
