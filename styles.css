@@ -1,8 +1,22 @@
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
-  background: #f6f7fb;
+  background: #bbc6f1;
   color: #222;
+}
+
+/* Logo esquina superior derecha */
+.logo-container {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 999;
+}
+
+.logo-biblio {
+  width: 215px;      /* Ajustá el tamaño acá */
+  height: auto;
+  opacity: 1;
 }
 
 h1 { margin-bottom: 10px; }
