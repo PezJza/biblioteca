@@ -87,3 +87,16 @@ td.fecha-vencida {
   margin-top: 10px;
   color: #b00020;
 }
+
+/* === Marca de agua centrada === */
+.watermark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 450px;          /* Ajustá tamaño */
+  height: auto;
+  opacity: 0.08;         /* Nivel de transparencia */
+  transform: translate(-50%, -50%);
+  pointer-events: none;  /* No bloquea clics */
+  z-index: 0;
+}
